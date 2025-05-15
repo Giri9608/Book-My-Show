@@ -1,35 +1,53 @@
 (without K8S Stage)
 pipeline {
     agent any
+
     tools {
         jdk 'jdk21'
-        nodejs 'node24'
+        nodejs 'node18' // Changed from node24 to node18
     }
+
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
     }
+
     stages {
         stage('Clean Workspace') {
             steps {
                 cleanWs()
             }
         }
+
         stage('Checkout from Git') {
             steps {
                 git branch: 'main', url: 'https://github.com/Giri9608/Book-My-Show.git'
-                sh 'ls -la'  // Verify files after checkout
+                sh 'ls -la'
             }
         }
+
+        stage('Verify Tools') {
+            steps {
+                sh '''
+                echo "Verifying tool versions..."
+                java -version
+                node -v
+                npm -v
+                '''
+            }
+        }
+
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('sonar-server') {
                     sh ''' 
-                    $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=BMS \
-                    -Dsonar.projectKey=BMS 
+                    $SCANNER_HOME/bin/sonar-scanner \
+                      -Dsonar.projectName=BMS \
+                      -Dsonar.projectKey=BMS 
                     '''
                 }
             }
         }
+
         stage('Quality Gate') {
             steps {
                 script {
@@ -37,14 +55,15 @@ pipeline {
                 }
             }
         }
+
         stage('Install Dependencies') {
             steps {
                 sh '''
                 cd bookmyshow-app
-                ls -la  # Verify package.json exists
+                ls -la
                 if [ -f package.json ]; then
-                    rm -rf node_modules package-lock.json  # Remove old dependencies
-                    npm install  # Install fresh dependencies
+                    rm -rf node_modules package-lock.json
+                    npm install
                 else
                     echo "Error: package.json not found in bookmyshow-app!"
                     exit 1
@@ -52,17 +71,20 @@ pipeline {
                 '''
             }
         }
+
         stage('OWASP FS Scan') {
             steps {
-                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
+                dependencyCheck additionalArguments: '--scan ./ --disableAssembly --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
                 dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
+
         stage('Trivy FS Scan') {
             steps {
                 sh 'trivy fs . > trivyfs.txt'
             }
         }
+
         stage('Docker Build & Push') {
             steps {
                 script {
@@ -71,13 +93,14 @@ pipeline {
                         echo "Building Docker image..."
                         docker build --no-cache -t giri8608/bms:latest -f bookmyshow-app/Dockerfile bookmyshow-app
 
-                        echo "Pushing Docker image to registry..."
+                        echo "Pushing Docker image to Docker Hub..."
                         docker push giri8608/bms:latest
                         '''
                     }
                 }
             }
         }
+
         stage('Deploy to Container') {
             steps {
                 sh ''' 
@@ -88,16 +111,17 @@ pipeline {
                 echo "Running new container on port 3000..."
                 docker run -d --restart=always --name bms -p 3000:3000 giri8608/bms:latest
 
-                echo "Checking running containers..."
+                echo "Container status:"
                 docker ps -a
 
                 echo "Fetching logs..."
-                sleep 5  # Give time for the app to start
+                sleep 5
                 docker logs bms
                 '''
             }
         }
     }
+
     post {
         always {
             emailext attachLog: true,
@@ -110,3 +134,4 @@ pipeline {
         }
     }
 }
+

@@ -4,7 +4,7 @@ pipeline {
 
     tools {
         jdk 'jdk21'
-        nodejs 'node18' // Changed from node24 to node18
+        nodejs 'node18'  // Matches Jenkins Global Tool Configuration
     }
 
     environment {
@@ -81,7 +81,7 @@ pipeline {
 
         stage('Trivy FS Scan') {
             steps {
-                sh 'trivy fs . > trivyfs.txt'
+                sh 'trivy fs . --skip-files dependency-check-report.xml > trivyfs.txt'
             }
         }
 
@@ -91,7 +91,7 @@ pipeline {
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
                         sh ''' 
                         echo "Building Docker image..."
-                        docker build --no-cache -t giri8608/bms:latest -f bookmyshow-app/Dockerfile bookmyshow-app
+                        docker build -t giri8608/bms:latest -f bookmyshow-app/Dockerfile bookmyshow-app
 
                         echo "Pushing Docker image to Docker Hub..."
                         docker push giri8608/bms:latest
@@ -108,14 +108,22 @@ pipeline {
                 docker stop bms || true
                 docker rm bms || true
 
+                echo "Cleaning up unused Docker images..."
+                docker image prune -f
+
                 echo "Running new container on port 3000..."
                 docker run -d --restart=always --name bms -p 3000:3000 giri8608/bms:latest
 
-                echo "Container status:"
+                echo "Waiting for the app to start..."
+                sleep 5
+
+                echo "Checking container status:"
                 docker ps -a
 
-                echo "Fetching logs..."
-                sleep 5
+                echo "Performing health check..."
+                curl -f http://localhost:3000 || echo "App not responding"
+
+                echo "Fetching container logs..."
                 docker logs bms
                 '''
             }
@@ -134,4 +142,5 @@ pipeline {
         }
     }
 }
+
 

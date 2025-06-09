@@ -63,10 +63,6 @@ pipeline {
                 echo "Listing directory contents before installation..."
                 ls -la
 
-                echo "Fixing permissions..."
-                sudo chown -R jenkins:jenkins .
-                sudo chmod -R 755 .
-
                 if [ -f package.json ]; then
                     echo "Removing node_modules and package-lock.json..."
                     rm -rf node_modules package-lock.json
@@ -153,5 +149,4 @@ pipeline {
         }
     }
 }
-
 

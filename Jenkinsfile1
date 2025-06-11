@@ -14,7 +14,6 @@ pipeline {
         stage('Clean Workspace') {
             steps {
                 cleanWs()
-                echo "Workspace cleaned successfully"
             }
         }
 
@@ -42,7 +41,7 @@ pipeline {
                     sh ''' 
                     $SCANNER_HOME/bin/sonar-scanner \
                       -Dsonar.projectName=BMS \
-                      -Dsonar.projectKey=BMS
+                      -Dsonar.projectKey=BMS 
                     '''
                 }
             }
@@ -60,21 +59,14 @@ pipeline {
             steps {
                 sh '''
                 cd bookmyshow-app
-                echo "Listing directory contents before installation..."
                 ls -la
-
                 if [ -f package.json ]; then
-                    echo "Removing node_modules and package-lock.json..."
                     rm -rf node_modules package-lock.json
-                    echo "Installing dependencies..."
                     npm install
                 else
                     echo "Error: package.json not found in bookmyshow-app!"
                     exit 1
                 fi
-
-                echo "Listing directory contents after installation..."
-                ls -la
                 '''
             }
         }
@@ -124,7 +116,7 @@ pipeline {
                 echo "Waiting for the app to start..."
                 sleep 5
 
-                echo "Checking container status..."
+                echo "Checking container status:"
                 docker ps -a
 
                 echo "Performing health check..."
@@ -145,7 +137,7 @@ pipeline {
                       "Build Number: ${env.BUILD_NUMBER}<br/>" +
                       "URL: ${env.BUILD_URL}<br/>",
                 to: 'giridharan9608@gmail.com',
-                attachmentsPattern: 'trivyfs.txt'  // Attach Trivy scan result
+                attachmentsPattern: 'trivyfs.txt'  // Removed trivyimage.txt as it doesn't exist
         }
     }
 }
